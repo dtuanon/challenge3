@@ -28,5 +28,3 @@ def rand_index(clusters):
 	y = map(lambda e: ics(e, truth, 'truth'), elems)
 
 	return adjusted_rand_score(x,y)
-
-rand_index(clusters)
