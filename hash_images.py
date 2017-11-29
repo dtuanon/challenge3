@@ -7,11 +7,11 @@ from math import ceil
 from skimage import feature
 
 """
-Function which, both convert image to numpy array and do 2 by 2 max-pooling
+Function which, both convert image to numpy array and do 2 by 2 max-pooling and resizes the image
 """
 def to_numpy_pooling(meta_vid):
 	pooled	= block_reduce(np.asarray(meta_vid), block_size = (2,2,1), func = np.max)
-	return resize(pooled)
+	return pooled
 
 """
 Function which averages a list of frames
@@ -43,20 +43,20 @@ def get_frame_chunks(filename, n_chunks = 5):
 """
 Function which provides a fixed number of frames, evenly spaced
 """
-def get_frames(filename, n_frames = 15):
+def get_frames(filename, n_frames = 20):
 	video 			= imageio.get_reader(filename)
 	length			= video.get_length()
 	frame_interval	= length / n_frames
 	trail_lead_idx	= int(round(length % float(n_frames) / 2))
 	idx_list		= range(trail_lead_idx, length - trail_lead_idx, frame_interval)
-	return map(to_numpy_pooling, [video.get_data(idx) for idx in idx_list])
+	return [video.get_data(idx) for idx in idx_list]
 
 """
 Resize function using Pillows - convert from numpy array to image and back to numpy array
 """
 def resize(frame):
 	#using LANCZOS for convolution "http://pillow.readthedocs.io/en/3.1.x/releasenotes/2.7.0.html"
-	size 	= (50,50)
+	size 	= (20,20)
 	i 		= Image.fromarray(frame)
 	return np.asarray(i.resize(size, Image.LANCZOS))
 
@@ -67,7 +67,7 @@ Function which average pixel values at distances from the center of the image. T
 def rotation_invariant_feature(frame):
 	w, h, _ 				= frame.shape
 	cx, cy					= w/2, h/2
-	max_dist				= max(w/2, h/2)
+	max_dist				= min(w/2, h/2)
 	avg_pixel_cirles		= np.zeros((max_dist,3))
 	count_element_at_dist 	= np.zeros(max_dist)
 
@@ -105,18 +105,17 @@ def get_color_features(frames,frame_div=3):
 	x = block_reduce(frames,block_size=(1, s[1], s[2], 1), func=np.mean)
 	x = x.reshape(-1,3)
 	x = normalize(x,axis=1)
-	#x = np.mean(x,axis=0)
-	x = x.flatten()
+	x = np.mean(x,axis=0)
 	return x
 
 def get_edge_features(frames,frame_div=3):
-	frames = np.mean(frames,axis=3)
-	edges = [feature.canny(i,sigma = 4) for i in frames]
-	edges = np.stack(edges)
-	s = [int(ceil(i/frame_div)) for i in frames.shape]
-	x = block_reduce(edges,block_size=(2,s[1], s[2]), func=np.mean)
-	x = x.flatten()
-	x = x/np.linalg.norm(x)
+	frames 	= np.mean(frames,axis=3)
+	edges 	= [feature.canny(i,sigma = 4) for i in frames]
+	edges 	= np.stack(edges)
+	s 		= [int(ceil(i/frame_div)) for i in frames.shape]
+	x	 	= block_reduce(edges,block_size=(2,s[1], s[2]), func=np.mean)
+	x 		= x.flatten()
+	x 		= x/np.linalg.norm(x)
 	return x
 
 """
@@ -140,14 +139,18 @@ This function takes a single video and transforms it using LSH
 def generate_video_representation(vid):
 	#frames					= get_frame_chunks(vid)
 	frames					= get_frames(vid)
+	pooled					= map(to_numpy_pooling, frames)
+	pooled_resized			= map(resize, pooled)
 	# calculate total average
-	tot_avg					= average_frames(frames)
+	tot_avg					= average_frames(pooled_resized)
 
 	# get rotation invariant features averaged across all frames
 	rotation_features		= flattener(normalize(rotation_invariant_feature(tot_avg)))
-	frames = np.stack(frames)
-	color_features			= get_color_features(frames).tolist()
-	edge_features			= get_edge_features(frames).tolist()
+	
+	# stacking
+	pooled = np.stack(pooled)
+	color_features			= get_color_features(pooled).tolist()
+	edge_features			= get_edge_features(pooled).tolist()
 
 	total_features 			= rotation_features + color_features + edge_features
 	return rotation_features

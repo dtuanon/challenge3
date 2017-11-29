@@ -13,7 +13,7 @@ def path_to_name(v_path):
 # testing code - getting only a subset of true clusters
 def load_filenames(n_clusters=970):
     if n_clusters == 970:
-        return glob.glob('./videosub/*.mp4')
+        return glob.glob('./videos/*.mp4')
     truth = get_truth()[0:n_clusters]
     filenames = ['./videos/'+name +'.mp4'
     			for set_of_names in truth 
@@ -24,10 +24,9 @@ def load_filenames(n_clusters=970):
 def main(video_files, n_clusters):
 	video_files	= load_filenames(n_clusters = n_clusters)
 	video_names = map(path_to_name, video_files)
-	
 	#generate_video_representation(video_files[0])
 	videos		= np.asarray(map(generate_video_representation, video_files))
-	
+	print videos.shape
 	clusters	= cluster_videos_kmeans(videos, video_names, n_clusters)
 	score 		= rand_index(clusters, n_clusters)
 	
