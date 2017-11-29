@@ -3,6 +3,9 @@ from skimage.measure import block_reduce
 import numpy as np
 from PIL import Image
 from sklearn.preprocessing import normalize
+from math import ceil
+from skimage import feature
+
 """
 Function which, both convert image to numpy array and do 2 by 2 max-pooling
 """
@@ -14,7 +17,7 @@ def to_numpy_pooling(meta_vid):
 Function which averages a list of frames
 """
 def average_frames(list_frames):
-	
+
 	added_frames = np.zeros(list_frames[0].shape)
 	for arr in list_frames:
 		added_frames += arr
@@ -35,8 +38,8 @@ def get_frame_chunks(filename, n_chunks = 5):
 	intervals.append(last)
 
 	return map(average_frames,[map(to_numpy_pooling, [video.get_data(idx) for idx in idx_list]) for idx_list in intervals])
-	
-	
+
+
 """
 Function which provides a fixed number of frames, evenly spaced
 """
@@ -80,7 +83,7 @@ def rotation_invariant_feature(frame):
 			dist_index 							= int(np.sqrt(xdist**2 + ydist**2))-1
 			avg_pixel_cirles[dist_index,] 		+= element
 			count_element_at_dist[dist_index] 	+= 1
-	
+
 	# calculate average
 	avg_pixel_cirles = avg_pixel_cirles.T / count_element_at_dist
 
@@ -93,10 +96,28 @@ Function which average pixel values along horizontal and vertical axis, relative
 def translation_invariant_feature(frame):
 	w, h, _ 				= frame.shape
 	cx, cy					= w/2, h/2
-	
+
 	# find average pixel value along x-axis and y-axis
 	return np.mean(frame[cx,], axis = 0), np.mean(frame[:,cy], axis = 0)
 
+def get_color_features(frames,frame_div=3):
+	s = [int(ceil(i/frame_div)) for i in frames.shape]
+	x = block_reduce(frames,block_size=(1, s[1], s[2], 1), func=np.mean)
+	x = x.reshape(-1,3)
+	x = normalize(x,axis=1)
+	#x = np.mean(x,axis=0)
+	x = x.flatten()
+	return x
+
+def get_edge_features(frames,frame_div=3):
+	frames = np.mean(frames,axis=3)
+	edges = [feature.canny(i,sigma = 4) for i in frames]
+	edges = np.stack(edges)
+	s = [int(ceil(i/frame_div)) for i in frames.shape]
+	x = block_reduce(edges,block_size=(2,s[1], s[2]), func=np.mean)
+	x = x.flatten()
+	x = x/np.linalg.norm(x)
+	return x
 
 """
 Function used to visualize images from numpy array (used for debugging and testing)
@@ -121,8 +142,12 @@ def generate_video_representation(vid):
 	frames					= get_frames(vid)
 	# calculate total average
 	tot_avg					= average_frames(frames)
-	
+
 	# get rotation invariant features averaged across all frames
-	rotation_features		= normalize(rotation_invariant_feature(tot_avg))
-	
-	return flattener(rotation_features)
+	rotation_features		= flattener(normalize(rotation_invariant_feature(tot_avg)))
+	frames = np.stack(frames)
+	color_features			= get_color_features(frames).tolist()
+	edge_features			= get_edge_features(frames).tolist()
+
+	total_features 			= rotation_features + color_features + edge_features
+	return rotation_features
