@@ -22,7 +22,6 @@ def load_filenames(n_clusters=None):
 def main(video_files, n_clusters):
 	video_files	= load_filenames(n_clusters = n_clusters)
 	video_names = map(path_to_name, video_files)
-	print video_names
 	
 
 
