@@ -81,7 +81,7 @@ def pred_to_clusters(pred,n_clusters):
         clusters[clus].add(names[idx])
     return adjusted_rand_index.rand_index(clusters,n_clusters)
 
-n_clusters = 10
+n_clusters = 58
 list_filenames = load_filenames(n_clusters)
 
 print("Hashing")

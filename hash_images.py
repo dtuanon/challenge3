@@ -40,7 +40,7 @@ def get_frame_chunks(filename, n_chunks = 5):
 """
 Function which provides a fixed number of frames, evenly spaced
 """
-def get_frames(filename, n_frames = 10):
+def get_frames(filename, n_frames = 15):
 	video 			= imageio.get_reader(filename)
 	length			= video.get_length()
 	frame_interval	= length / n_frames
