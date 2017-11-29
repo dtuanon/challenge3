@@ -3,8 +3,11 @@ def get_truth():
 
 from sklearn.metrics import adjusted_rand_score
 
-def rand_index(clusters,n_clusters):
-	truth = get_truth()[0:n_clusters-1]
+def rand_index(clusters, n_clusters=-1):
+	if n_cluster == -1:
+		truth = get_truth()
+	else:
+		truth = get_truth()[0:n_clusters]
 	elems = list(set.union(*truth))
 
 	# Index of Containing Set
