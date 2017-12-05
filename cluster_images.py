@@ -1,8 +1,10 @@
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
+from sklearn.preprocessing import scale
 
 from sklearn.cluster import AgglomerativeClustering
 def cluster_videos_kmeans(X, names, n_clusters = 970):
+	X 				= scale(X)
 	kmeans			= KMeans(n_clusters=n_clusters, n_jobs = -1)
 
 	belonging_index	= kmeans.fit_predict(X)
@@ -12,8 +14,8 @@ def cluster_videos_kmeans(X, names, n_clusters = 970):
 
 	return clusters
 
-def cluster_videos_gmm(X, names, n_clusters = 970):
-	cov_type	= "tied"
+def cluster_videos_gmm(X, names, n_clusters = 970, cov_type = "tied"):
+	X 			= scale(X)
 	n_init		= 3
 
 	gmm 		= GMM( n_components = n_clusters, covariance_type = cov_type, n_init = n_init )
