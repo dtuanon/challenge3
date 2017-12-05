@@ -1,17 +1,32 @@
 import imageio
-from skimage.measure import block_reduce
 import numpy as np
 from PIL import Image
 from sklearn.preprocessing import normalize
 from math import ceil
 from skimage import feature
 
+def pooling(numpy_array, block_size = (2,2), func = np.max):
+	# if numpy_array is not perfectly devisible by block_size, the last row/column will be cropped
+	h, w, c = numpy_array.shape
+	interval_h, interval_w = block_size
+	new_array	= np.zeros((h/interval_h, w/interval_w,c))
+	for i in range(h/interval_h):
+		for j in range(w/interval_w):
+			for k in range(c):
+				new_array[i,j,k] = func(numpy_array[interval_h*i:interval_h*(i+1), interval_w*j:interval_w*(j+1), k])
+				
+	return new_array
+
+
+
+
+
 """
-Function which, both convert image to numpy array and do 2 by 2 max-pooling and resizes the image
+Function which, both convert image to numpy array and do 2 by 2 max-pooling
 """
 def to_numpy_pooling(meta_vid):
-	pooled	= block_reduce(np.asarray(meta_vid), block_size = (2,2,1), func = np.max)
-	return pooled
+	pooled	= pooling(np.asarray(meta_vid), block_size = (2,2), func = np.max)
+	return pooled.astype('uint8')
 
 """
 Function which averages a list of frames
@@ -23,7 +38,6 @@ def average_frames(list_frames):
 		added_frames += arr
 
 	return added_frames / len(list_frames)
-	# return reduce(np.add, list_frames) / len(list_frames)
 
 """
 Function which devides an image into 10 chunks of frames - each frame represented by a numpy array
@@ -43,7 +57,7 @@ def get_frame_chunks(filename, n_chunks = 5):
 """
 Function which provides a fixed number of frames, evenly spaced
 """
-def get_frames(filename, n_frames = 20):
+def get_frames(filename, n_frames = 10):
 	video 			= imageio.get_reader(filename)
 	length			= video.get_length()
 	frame_interval	= length / n_frames
@@ -54,9 +68,9 @@ def get_frames(filename, n_frames = 20):
 """
 Resize function using Pillows - convert from numpy array to image and back to numpy array
 """
-def resize(frame):
+def resize(frame, w = 20, h = 20):
 	#using LANCZOS for convolution "http://pillow.readthedocs.io/en/3.1.x/releasenotes/2.7.0.html"
-	size 	= (20,20)
+	size 	= (w,h)
 	i 		= Image.fromarray(frame)
 	return np.asarray(i.resize(size, Image.LANCZOS))
 
@@ -100,23 +114,36 @@ def translation_invariant_feature(frame):
 	# find average pixel value along x-axis and y-axis
 	return np.mean(frame[cx,], axis = 0), np.mean(frame[:,cy], axis = 0)
 
-def get_color_features(frames,frame_div=3):
-	s = [int(ceil(i/frame_div)) for i in frames.shape]
-	x = block_reduce(frames,block_size=(1, s[1], s[2], 1), func=np.mean)
-	x = x.reshape(-1,3)
-	x = normalize(x,axis=1)
-	x = np.mean(x,axis=0)
-	return x
+#def get_color_features(frames,frame_div=3):
+#	s = [int(ceil(i/frame_div)) for i in frames.shape]
+#	x = pooling(frames,block_size=(1, s[1], s[2]), func=np.mean)
+#	x = x.reshape(-1,3)
+#	x = normalize(x,axis=1)
+#	x = np.mean(x,axis=0)
+#	return x
 
-def get_edge_features(frames,frame_div=3):
-	frames 	= np.mean(frames,axis=3)
-	edges 	= [feature.canny(i,sigma = 4) for i in frames]
-	edges 	= np.stack(edges)
-	s 		= [int(ceil(i/frame_div)) for i in frames.shape]
-	x	 	= block_reduce(edges,block_size=(2,s[1], s[2]), func=np.mean)
-	x 		= x.flatten()
-	x 		= x/np.linalg.norm(x)
-	return x
+"""
+Function which gets normalized color buckets, by dividing a frame into squares
+"""
+def square_color_bucket(frames):
+	frame 				= np.mean(frames, axis = 0)
+	w, h, _ 			= [i/3 for i in frame.shape]
+	x					= resize(frame.astype('uint8'), (w - w % 3), (h - h % 3))
+	w_block, h_block, _ = [i/3 for i in x.shape]
+	x					= pooling(x, block_size = (w_block, h_block), func = np.mean)
+	x					= normalize(x.reshape(-1, 3))
+	return	x.ravel()
+
+
+#def get_edge_features(frames,frame_div=3):
+#	frames 	= np.mean(frames,axis=3)
+#	edges 	= [feature.canny(i,sigma = 4) for i in frames]
+#	edges 	= np.stack(edges)
+#	s 		= [int(ceil(i/frame_div)) for i in frames.shape]
+#	x	 	= pooling(edges,block_size=(2,s[1], s[2]), func=np.mean)
+#	x 		= x.flatten()
+#	x 		= x/np.linalg.norm(x)
+#	return x
 
 """
 Function used to visualize images from numpy array (used for debugging and testing)
@@ -130,27 +157,62 @@ def visualize_singe_image(numpy_array):
 Function which flattens a list of lists
 """
 def flattener(alist):
-	return [element for sublist in alist for element in sublist]
+	return np.asarray([element for sublist in alist for element in sublist])
 
+
+"""
+Function which calculates aspect-ratio
+"""
+def aspect_ratio(frame):
+	w, h, _	= frame.shape
+	return np.asarray([w/float(h)])
+
+"""
+Function whichw weights features
+"""
+def weight_features(do_weight, *args):
+	if do_weight:
+		# find number of features
+		n_features 		= map(len, args)
+		total_features	= float(sum(n_features))
+		# calculated weights
+		importance		= map(lambda x: x/total_features, n_features)
+		norm 			= sum(map(lambda x: 1/x,importance))
+		return map(lambda x: 1/(x*norm), importance), args
+	else:
+		return [1] * len(args), args
+	
 
 """
 This function takes a single video and transforms it using LSH
 """
-def generate_video_representation(vid):
+def generate_video_representation(vid, do_weight):
 	#frames					= get_frame_chunks(vid)
 	frames					= get_frames(vid)
-	pooled					= map(to_numpy_pooling, frames)
+	
+	# without pooling
+	pooled					= map(np.asarray, frames)
+	
+	# with pooling
+	#pooled					= map(to_numpy_pooling, frames)
+	
 	pooled_resized			= map(resize, pooled)
 	# calculate total average
 	tot_avg					= average_frames(pooled_resized)
 
 	# get rotation invariant features averaged across all frames
-	rotation_features		= flattener(normalize(rotation_invariant_feature(tot_avg)))
+	rotation_features		= normalize(rotation_invariant_feature(tot_avg)).ravel()
 	
 	# stacking
 	pooled = np.stack(pooled)
-	color_features			= get_color_features(pooled).tolist()
-	edge_features			= get_edge_features(pooled).tolist()
+	#color_features			= get_color_features(pooled)
+	# edge_features			= get_edge_features(pooled)
+	# square colors
+	square_color_feature	= square_color_bucket(pooled)
+	# get aspect ratio
+	asp						= aspect_ratio(frames[0])
 
-	total_features 			= rotation_features + color_features + edge_features
-	return rotation_features
+	# find weights for each set of features
+	weights, featurelist	= weight_features(do_weight, rotation_features, square_color_feature, asp)
+	total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
+	return total_features.tolist()
