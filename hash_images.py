@@ -6,6 +6,12 @@ from math import ceil
 from skimage import feature
 import imagehash as ih
 
+
+
+"""
+Pooling function - which takes a block matrix of an image and maps all pixels using func
+"""
+
 def pooling(numpy_array, block_size = (2,2), func = np.max):
 	# if numpy_array is not perfectly devisible by block_size, the last row/column will be cropped
 	h, w, c = numpy_array.shape
@@ -17,9 +23,6 @@ def pooling(numpy_array, block_size = (2,2), func = np.max):
 				new_array[i,j,k] = func(numpy_array[interval_h*i:interval_h*(i+1), interval_w*j:interval_w*(j+1), k])
 
 	return new_array
-
-
-
 
 
 """
@@ -198,10 +201,10 @@ def image_hash(frames):
     wHash = ""
     for image in frames:
         image = Image.fromarray(image)
-        #aHash+= str(ih.average_hash(image))
-        pHash+= str(ih.phash(image))
-        #dHash+= str(ih.dhash(image))
-        #wHash+= str(ih.whash(image))
+        #aHash += str(ih.average_hash(image))
+        pHash += str(ih.phash(image))
+        #dHash += str(ih.dhash(image))
+        #wHash += str(ih.whash(image))
     #aHash = [int(char,16) for char in aHash]
     pHash = np.asarray([int(char,16) for char in pHash])
     #dHash = [int(char,16) for char in dHash]
@@ -211,7 +214,7 @@ def image_hash(frames):
 """
 This function takes a single video and transforms it using LSH
 """
-def generate_video_representation(vid, do_weight):
+def generate_video_representation(vid, do_weight, ):
     #frames					= get_frame_chunks(vid)
 	frames					= get_frames(vid)
 	"""
@@ -243,6 +246,6 @@ def generate_video_representation(vid, do_weight):
 
 	bucket					= frequency_bucket(pHash)
 	# find weights for each set of features
-	weights, featurelist	= weight_features(do_weight, bucket) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
+	weights, featurelist	= weight_features(do_weight, pHash) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
 	total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
 	return total_features.tolist()
