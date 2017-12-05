@@ -184,18 +184,52 @@ def weight_features(do_weight, *args):
 		return [1] * len(args), args
 	
 
-def image_hash(frames):
-    aHash = []
-    pHash = []
-    dHash = []
-    wHash = []
-    for image in frames:
-        aHash.append(ih.average_hash(image))
-        pHash.append(ih.perception_hash(image))
-        dHash.append(ih.difference_hash(image))
-        wHash.append(ih.wavelet_hash(image))
+def image_hash2(frames):
+    aHash = np.zeros(len(frames), dtype=np.int64)
+    pHash = np.zeros(len(frames), dtype=np.int64)
+    dHash = np.zeros(len(frames), dtype=np.int64)
+    wHash = np.zeros(len(frames), dtype=np.int64)
+    for idx, image in enumerate(frames):
+        image = Image.fromarray(image)
+        aHash[idx] = ih.average_hash(image)
+        #print("aHash num: ", idx)
+        #print(type(aHash[idx]))
+        #print(aHash[idx])
+        pHash[idx] = ih.phash(image)
+        dHash[idx] = ih.dhash(image)
+        wHash[idx] = ih.whash(image)
     return aHash, pHash, dHash, wHash
     
+def image_hash(frames):
+    #aHash = []
+    pHash = []
+    #dHash = []
+    #wHash = []
+    for idx, image in enumerate(frames):
+        image = Image.fromarray(image)
+        #aHash.append(ih.average_hash(image))
+        #print("aHash num: ", idx)
+        #print(type(aHash[idx]))
+        #print(aHash[idx])
+        pHash += [int(charitem,16) for charitem in str(ih.phash(image))]        
+        
+        #dHash.append(ih.dhash(image))
+        #wHash.append(ih.whash(image))
+    return pHash
+
+""" Function to flatten a list of lists"""
+def flatten(LoL):
+    return [item for sublist in LoL for item in sublist]
+
+def hex2digits(hex_string):
+    return 
+
+def frequency_bucket(hash_list):
+    fb = np.zeros(16)
+    for ahash in hash_list:
+        fb[ahash] += 1
+        
+    return fb
 
 """
 This function takes a single video and transforms it using LSH
@@ -224,13 +258,15 @@ def generate_video_representation(vid, do_weight):
     
     #square colors
     square_color_feature	= square_color_bucket(pooled)
+    """
     
     # get aspect ratio 
-    asp						= aspect_ratio(frames[0])
-    """
-    aHash, pHash, dHash, wHash   = image_hash(frames)                 
-
+    #asp						= aspect_ratio(frames[0])
+    
+    pHash                  = image_hash(frames)
+            
+    bucket                = frequency_bucket(pHash)
     # find weights for each set of features
-    weights, featurelist	= weight_features(do_weight, aHash, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
+    weights, featurelist	= weight_features(do_weight, bucket) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
     total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
     return total_features.tolist()
