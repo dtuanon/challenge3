@@ -12,7 +12,7 @@ def cluster_videos_kmeans(X, names, n_clusters = 970):
 	return clusters
 	
 def cluster_videos_gmm(X, names, n_clusters = 970):
-	cov_type	= "tied"
+	cov_type	= "diag"
 	n_init		= 3
 	
 	gmm 		= GMM( n_components = n_clusters, covariance_type = cov_type, n_init = n_init )
