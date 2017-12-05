@@ -6,7 +6,7 @@ import argparse
 from hash_images import generate_video_representation
 import numpy as np
 import time
-from cluster_images import cluster_videos_kmeans, cluster_videos_gmm
+from cluster_images import cluster_videos_kmeans, cluster_videos_gmm, cluster_videos_ac
 from mpi4py import MPI
 
 """
@@ -69,6 +69,8 @@ def main(n_clusters, do_weight, cluster):
 			clusters = cluster_videos_kmeans(videos, video_names, n_clusters)
 		elif cluster == 'gmm':
 			clusters = cluster_videos_gmm(videos, video_names, n_clusters)
+		elif cluster == 'ac':
+			clusters = cluster_videos_ac(videos, video_names, n_clusters)
 		score 		= rand_index(clusters, n_clusters)
 	
 		print "Scores: ", np.round(score,2), "\nExecution time: %s" % (time.time() - start_time)
@@ -80,7 +82,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument("--n_clusters", type = int, default = 970, choices = range(971), help = "Specify number of clusters to use for testing")
 	parser.add_argument("--do_weight", action = 'store_true', help = "Specify whether features should be weighted")
-	parser.add_argument("--cluster", type = str, default = "kmeans", choices = ["kmeans", "gmm"], help = "Specify which cluster to use")
+	parser.add_argument("--cluster", type = str, default = "kmeans", choices = ["kmeans", "gmm", "ac"], help = "Specify which cluster to use")
 	
 	
 	args 		= parser.parse_args()

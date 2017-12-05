@@ -4,6 +4,7 @@ from PIL import Image
 from sklearn.preprocessing import normalize
 from math import ceil
 from skimage import feature
+import imagehash as ih
 
 def pooling(numpy_array, block_size = (2,2), func = np.max):
 	# if numpy_array is not perfectly devisible by block_size, the last row/column will be cropped
@@ -14,7 +15,7 @@ def pooling(numpy_array, block_size = (2,2), func = np.max):
 		for j in range(w/interval_w):
 			for k in range(c):
 				new_array[i,j,k] = func(numpy_array[interval_h*i:interval_h*(i+1), interval_w*j:interval_w*(j+1), k])
-				
+
 	return new_array
 
 
@@ -57,7 +58,7 @@ def get_frame_chunks(filename, n_chunks = 5):
 """
 Function which provides a fixed number of frames, evenly spaced
 """
-def get_frames(filename, n_frames = 10):
+def get_frames(filename, n_frames = 20):
 	video 			= imageio.get_reader(filename)
 	length			= video.get_length()
 	frame_interval	= length / n_frames
@@ -181,38 +182,67 @@ def weight_features(do_weight, *args):
 		return map(lambda x: 1/(x*norm), importance), args
 	else:
 		return [1] * len(args), args
-	
+
+
+def frequency_bucket(hash_list):
+    fb = np.zeros(16)
+    for ahash in hash_list:
+        fb[ahash] += 1
+
+    return fb
+
+def image_hash(frames):
+    aHash = ""
+    pHash = ""
+    dHash = ""
+    wHash = ""
+    for image in frames:
+        image = Image.fromarray(image)
+        #aHash+= str(ih.average_hash(image))
+        pHash+= str(ih.phash(image))
+        #dHash+= str(ih.dhash(image))
+        #wHash+= str(ih.whash(image))
+    #aHash = [int(char,16) for char in aHash]
+    pHash = np.asarray([int(char,16) for char in pHash])
+    #dHash = [int(char,16) for char in dHash]
+    #wHash = [int(char,16) for char in wHash]
+    return pHash
 
 """
 This function takes a single video and transforms it using LSH
 """
 def generate_video_representation(vid, do_weight):
-	#frames					= get_frame_chunks(vid)
+    #frames					= get_frame_chunks(vid)
 	frames					= get_frames(vid)
-	
-	# without pooling
-	pooled					= map(np.asarray, frames)
-	
-	# with pooling
-	#pooled					= map(to_numpy_pooling, frames)
-	
-	pooled_resized			= map(resize, pooled)
-	# calculate total average
-	tot_avg					= average_frames(pooled_resized)
+	"""
+    # without pooling
+    pooled					= map(np.asarray, frames)
 
-	# get rotation invariant features averaged across all frames
-	rotation_features		= normalize(rotation_invariant_feature(tot_avg)).ravel()
-	
-	# stacking
-	pooled = np.stack(pooled)
-	#color_features			= get_color_features(pooled)
-	# edge_features			= get_edge_features(pooled)
-	# square colors
-	square_color_feature	= square_color_bucket(pooled)
-	# get aspect ratio
-	asp						= aspect_ratio(frames[0])
+    # with pooling
+    #pooled					= map(to_numpy_pooling, frames)
 
+    pooled_resized			= map(resize, pooled)
+    # calculate total average
+    tot_avg					= average_frames(pooled_resized)
+    # get rotation invariant features averaged across all frames
+    rotation_features		= normalize(rotation_invariant_feature(tot_avg)).ravel()
+
+    # stacking
+    pooled = np.stack(pooled)
+    color_features			= get_color_features(pooled)
+    edge_features			= get_edge_features(pooled)
+
+    #square colors
+    square_color_feature	= square_color_bucket(pooled)
+    """
+
+    # get aspect ratio
+    #asp						= aspect_ratio(frames[0])
+
+	pHash					= image_hash(frames)
+
+	bucket					= frequency_bucket(pHash)
 	# find weights for each set of features
-	weights, featurelist	= weight_features(do_weight, rotation_features, square_color_feature, asp)
+	weights, featurelist	= weight_features(do_weight, bucket) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
 	total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
 	return total_features.tolist()
