@@ -5,7 +5,7 @@ from adjusted_rand_index import rand_index, get_truth
 import argparse
 from hash_images import generate_video_representation
 import numpy as np
-from cluster_images import cluster_videos_kmeans, cluster_videos_gmm
+from cluster_images import cluster_videos_kmeans, cluster_videos_gmm, cluster_videos_ac
 # extract the video names from the paths
 def path_to_name(v_path):
 	return v_path.split('/')[-1].split('.')[0]
@@ -17,7 +17,7 @@ def load_filenames(n_clusters=970):
         return glob.glob('./videos/*.mp4')
     truth = get_truth()[0:n_clusters]
     filenames = ['./videos/'+name +'.mp4'
-    			for set_of_names in truth 
+    			for set_of_names in truth
     			for name in set_of_names]
     return filenames
 
@@ -31,20 +31,22 @@ def main(n_clusters,  do_weight, cluster):
 		clusters = cluster_videos_kmeans(videos, video_names, n_clusters)
 	elif cluster == 'gmm':
 		clusters = cluster_videos_gmm(videos, video_names, n_clusters)
+	elif cluster == 'ac':
+		clusters = cluster_videos_ac(videos, video_names, n_clusters)
 	score 		= rand_index(clusters, n_clusters)
-	
+
 	print score
 
 
 
 if __name__ == "__main__":
-	
+
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument("--n_clusters", type = int, default = 970, choices = range(971), help = "Specify number of clusters to use for testing")
 	parser.add_argument("--do_weight", action = 'store_true', help = "Specify whether features should be weighted")
-	parser.add_argument("--cluster", type = str, default = "kmeans", choices = ["kmeans", "gmm"], help = "Specify which cluster to use")
-	
-	
+	parser.add_argument("--cluster", type = str, default = "kmeans", choices = ["kmeans", "gmm", "ac"], help = "Specify which cluster to use")
+
+
 	args 		= parser.parse_args()
 	n_clusters	= args.n_clusters
 	do_weight	= args.do_weight

@@ -11,6 +11,7 @@ from skimage.measure import block_reduce
 from math import ceil
 from skimage import feature
 from hash_images import generate_video_representation
+dict = {'0':0, '1':1, '2':1, '3':2, '4':1, '5':2, '6':2, '7':3, '8':1, '9':2, 'a':2, 'b':3, 'c':2, 'd':3, 'e':, 'f':}
 def sub_rand_index(clusters):
 	elems = list(set.union(*truth))
 
@@ -56,7 +57,7 @@ def get_frames(filename,n_frames=2,img_crop=1,video_crop=1):
     def crop_center(img,img_crop):
         x,y,c = img.shape
         cropx = x // img_crop
-        cropy = y// img_crop
+        cropy = y // img_crop
         startx = x//2 - cropx//2
         starty = y//2 - cropy//2
         return img[startx:startx+cropx,starty:starty+cropy, :]
