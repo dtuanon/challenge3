@@ -2,7 +2,7 @@ import imageio
 import numpy as np
 from PIL import Image
 from sklearn.preprocessing import normalize
-from math import ceil
+from math import ceil,floor
 from skimage import feature
 import imagehash as ih
 
@@ -54,17 +54,23 @@ def get_frame_chunks(filename, n_chunks = 5):
 
 	return map(average_frames,[map(to_numpy_pooling, [video.get_data(idx) for idx in idx_list]) for idx_list in intervals])
 
-
+def crop_center(img,portion):
+    x,y,c = img.shape
+    cropx = int(floor(x*portion))
+    cropy = int(floor(y*portion))
+    startx = x//2 - cropx//2
+    starty = y//2 - cropy//2
+    return img[startx:startx+cropx,starty:starty+cropy, :]
 """
 Function which provides a fixed number of frames, evenly spaced
 """
-def get_frames(filename, n_frames = 20):
+def get_frames(filename, n_frames = 10):
 	video 			= imageio.get_reader(filename)
 	length			= video.get_length()
 	frame_interval	= length / n_frames
 	trail_lead_idx	= int(round(length % float(n_frames) / 2))
 	idx_list		= range(trail_lead_idx, length - trail_lead_idx, frame_interval)
-	return [video.get_data(idx) for idx in idx_list]
+	return [crop_center(video.get_data(idx),0.92) for idx in idx_list]
 
 """
 Resize function using Pillows - convert from numpy array to image and back to numpy array
@@ -245,4 +251,4 @@ def generate_video_representation(vid, do_weight):
 	# find weights for each set of features
 	weights, featurelist	= weight_features(do_weight, bucket) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
 	total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
-	return total_features.tolist()
+	return pHash #total_features.tolist()
