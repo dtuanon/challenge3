@@ -2,7 +2,7 @@ import imageio
 import numpy as np
 from PIL import Image
 from sklearn.preprocessing import normalize
-from math import ceil
+from math import ceil,floor
 from skimage import feature
 import imagehash as ih
 
@@ -35,13 +35,17 @@ def to_numpy_pooling(meta_vid):
 """
 Function which averages a list of frames
 """
-def average_frames(list_frames):
-
-	added_frames = np.zeros(list_frames[0].shape)
-	for arr in list_frames:
-		added_frames += arr
-
-	return added_frames / len(list_frames)
+def average_frames_grey_scale(frames):
+	frame 	= np.mean(frames, axis = 0)
+	
+	# make into an Image
+	i 		= Image.fromarray(frame.astype('uint8'))
+	
+	# convert image to grey scale
+	i		= i.convert(mode = "L")
+	
+	
+	return np.asarray(i)
 
 """
 Function which devides an image into 10 chunks of frames - each frame represented by a numpy array
@@ -57,17 +61,23 @@ def get_frame_chunks(filename, n_chunks = 5):
 
 	return map(average_frames,[map(to_numpy_pooling, [video.get_data(idx) for idx in idx_list]) for idx_list in intervals])
 
-
+def crop_center(img,portion):
+    x,y,c = img.shape
+    cropx = int(floor(x*portion))
+    cropy = int(floor(y*portion))
+    startx = x//2 - cropx//2
+    starty = y//2 - cropy//2
+    return img[startx:startx+cropx,starty:starty+cropy, :]
 """
 Function which provides a fixed number of frames, evenly spaced
 """
-def get_frames(filename, n_frames = 20):
+def get_frames(filename, n_frames = 10):
 	video 			= imageio.get_reader(filename)
 	length			= video.get_length()
 	frame_interval	= length / n_frames
 	trail_lead_idx	= int(round(length % float(n_frames) / 2))
 	idx_list		= range(trail_lead_idx, length - trail_lead_idx, frame_interval)
-	return [video.get_data(idx) for idx in idx_list]
+	return [crop_center(video.get_data(idx),0.92) for idx in idx_list]
 
 """
 Resize function using Pillows - convert from numpy array to image and back to numpy array
@@ -83,10 +93,10 @@ def resize(frame, w = 20, h = 20):
 Function which average pixel values at distances from the center of the image. Then average all these averages.
 """
 def rotation_invariant_feature(frame):
-	w, h, _ 				= frame.shape
+	w, h,					= frame.shape
 	cx, cy					= w/2, h/2
 	max_dist				= min(w/2, h/2)
-	avg_pixel_cirles		= np.zeros((max_dist,3))
+	avg_pixel_cirles		= np.zeros(max_dist)
 	count_element_at_dist 	= np.zeros(max_dist)
 
 	# add pixel values lying on same circle together
@@ -104,27 +114,9 @@ def rotation_invariant_feature(frame):
 
 	# calculate average
 	avg_pixel_cirles = avg_pixel_cirles.T / count_element_at_dist
-
+	
 	# return average of averages
-	return avg_pixel_cirles.T
-
-"""
-Function which average pixel values along horizontal and vertical axis, relative to the center pixel
-"""
-def translation_invariant_feature(frame):
-	w, h, _ 				= frame.shape
-	cx, cy					= w/2, h/2
-
-	# find average pixel value along x-axis and y-axis
-	return np.mean(frame[cx,], axis = 0), np.mean(frame[:,cy], axis = 0)
-
-#def get_color_features(frames,frame_div=3):
-#	s = [int(ceil(i/frame_div)) for i in frames.shape]
-#	x = pooling(frames,block_size=(1, s[1], s[2]), func=np.mean)
-#	x = x.reshape(-1,3)
-#	x = normalize(x,axis=1)
-#	x = np.mean(x,axis=0)
-#	return x
+	return avg_pixel_cirles.reshape(1,-1)
 
 """
 Function which gets normalized color buckets, by dividing a frame into squares
@@ -202,14 +194,14 @@ def image_hash(frames):
     for image in frames:
         image = Image.fromarray(image)
         #aHash += str(ih.average_hash(image))
-        pHash += str(ih.phash(image))
+        #pHash += str(ih.phash(image))
         #dHash += str(ih.dhash(image))
-        #wHash += str(ih.whash(image))
+        wHash += str(ih.whash(image))
     #aHash = [int(char,16) for char in aHash]
-    pHash = np.asarray([int(char,16) for char in pHash])
-    #dHash = [int(char,16) for char in dHash]
-    #wHash = [int(char,16) for char in wHash]
-    return pHash
+    #pHash = np.asarray([int(char,16) for char in pHash])
+    #dHash = np.asarray([int(char,16) for char in dHash])
+    wHash = np.asarray([int(char,16) for char in wHash])
+    return wHash
 
 """
 This function takes a single video and transforms it using LSH
@@ -217,35 +209,32 @@ This function takes a single video and transforms it using LSH
 def generate_video_representation(vid, do_weight, ):
     #frames					= get_frame_chunks(vid)
 	frames					= get_frames(vid)
-	"""
+
     # without pooling
-    pooled					= map(np.asarray, frames)
+	pooled					= map(np.asarray, frames)
+	
+	# with pooling
+	#pooled					= map(to_numpy_pooling, frames)
 
-    # with pooling
-    #pooled					= map(to_numpy_pooling, frames)
+	pooled_resized			= np.stack(map(resize, pooled))
+	# calculate total average
+	tot_avg_grey			= average_frames_grey_scale(pooled_resized)
+	# get rotation invariant features averaged across all frames
+	rotation_features		= normalize(rotation_invariant_feature(tot_avg_grey)).ravel()
+	# stacking
+	pooled = np.stack(pooled)
+	#edge_features			= get_edge_features(pooled)
 
-    pooled_resized			= map(resize, pooled)
-    # calculate total average
-    tot_avg					= average_frames(pooled_resized)
-    # get rotation invariant features averaged across all frames
-    rotation_features		= normalize(rotation_invariant_feature(tot_avg)).ravel()
+	#square colors
+	square_color_feature	= square_color_bucket(pooled)
 
-    # stacking
-    pooled = np.stack(pooled)
-    color_features			= get_color_features(pooled)
-    edge_features			= get_edge_features(pooled)
+	# get aspect ratio
+	asp						= aspect_ratio(frames[0])
 
-    #square colors
-    square_color_feature	= square_color_bucket(pooled)
-    """
+	aHash					= image_hash(frames)
 
-    # get aspect ratio
-    #asp						= aspect_ratio(frames[0])
-
-	pHash					= image_hash(frames)
-
-	bucket					= frequency_bucket(pHash)
+	bucket					= frequency_bucket(aHash)
 	# find weights for each set of features
-	weights, featurelist	= weight_features(do_weight, pHash) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
+	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
 	total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
 	return total_features.tolist()
