@@ -43,7 +43,7 @@ def load_filenames(n_clusters=970):
 
 # the main function, which solves the challenge
 def main(n_clusters, do_weight, cluster):
-	print size
+
 	if rank == 0:
 		start_time = time.time()
 		video_files	= load_filenames(n_clusters = n_clusters)
@@ -89,6 +89,7 @@ if __name__ == "__main__":
 	n_clusters	= args.n_clusters
 	do_weight	= args.do_weight
 	cluster 	= args.cluster
-	print "Used parameters: \n\tn_clusters: {0}\n\tdo_weight: {1}\n\tcluster: {2}".format(n_clusters,do_weight,cluster)
+	if rank == 0:
+		print "Used parameters: \n\tn_clusters: {0}\n\tdo_weight: {1}\n\tcluster: {2}".format(n_clusters,do_weight,cluster)
 	# run main function
 	main(n_clusters, do_weight, cluster)
