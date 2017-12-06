@@ -6,10 +6,10 @@
 #PBS -q hpc
 
 # -- estimated wall clock time (execution time): hh:mm:ss --
-#PBS -l walltime=03:00:00
+#PBS -l walltime=00:10:00
 
 # -- number of processors/cores/nodes --
-#PBS -l nodes=10:ppn=8
+#PBS -l nodes=5:ppn=8
 
 # -- mail notification --
 #PBS -m abe
@@ -32,4 +32,4 @@ source ./python_env/bin/activate
 
 # run program - use mpiexec instead of mpirun if possible
 # the --mca orte_base_help_aggregate 0 makes the mpi fully verbose (for debuggi$
-mpiexec --mca orte_base_help_aggregate 0 python ./main.py --do_weight
+mpiexec --mca orte_base_help_aggregate 0 python ./main.py --cluster gmm
