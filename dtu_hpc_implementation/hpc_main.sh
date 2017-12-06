@@ -1,7 +1,7 @@
 #!/bin/sh
 # embedded options to qsub - start with #PBS
 # -- Name of the job ---
-#PBS -N vid clusters
+#PBS -N vid_clusters
 # -- specify queue --
 #PBS -q hpc
 
