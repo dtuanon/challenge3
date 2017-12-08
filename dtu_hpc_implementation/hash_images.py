@@ -75,8 +75,11 @@ def get_frames(filename, n_frames = 10):
 	video 			= imageio.get_reader(filename)
 	length			= video.get_length()
 	frame_interval	= length / n_frames
-	trail_lead_idx	= int(round(length % float(n_frames) / 2))
-	idx_list		= range(trail_lead_idx, length - trail_lead_idx, frame_interval)
+	if frame_interval !=0:
+		trail_lead_idx	= int(round(length % float(n_frames) / 2))
+		idx_list	= range(trail_lead_idx, length - trail_lead_idx, frame_interval)
+	else:
+		idx_list = range(length)
 	return [crop_center(video.get_data(idx),0.92) for idx in idx_list]
 
 """
@@ -182,7 +185,7 @@ def weight_features(do_weight, *args):
 def frequency_bucket(hash_list):
     fb = np.zeros(16)
     for ahash in hash_list:
-        fb[ahash] += 1
+        fb[ahash % 16] += 1
 
     return fb
 
@@ -208,7 +211,7 @@ This function takes a single video and transforms it using LSH
 """
 def generate_video_representation(vid, do_weight, ):
     #frames					= get_frame_chunks(vid)
-	frames					= get_frames(vid)
+	frames					= get_frames(vid, n_frames = 30)
 
     # without pooling
 	pooled					= map(np.asarray, frames)
@@ -232,9 +235,11 @@ def generate_video_representation(vid, do_weight, ):
 	asp						= aspect_ratio(frames[0])
 
 	aHash					= image_hash(frames)
-
+	
 	bucket					= frequency_bucket(aHash)
+
 	# find weights for each set of features
-	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
+	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features, square_color_feature)
 	total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
+	
 	return total_features.tolist()

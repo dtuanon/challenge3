@@ -6,10 +6,10 @@
 #PBS -q hpc
 
 # -- estimated wall clock time (execution time): hh:mm:ss --
-#PBS -l walltime=00:10:00
+#PBS -l walltime=01:00:00
 
 # -- number of processors/cores/nodes --
-#PBS -l nodes=5:ppn=8
+#PBS -l nodes=4:ppn=10
 
 # -- mail notification --
 #PBS -m abe

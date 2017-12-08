@@ -26,6 +26,9 @@ size 	= comm.Get_size()
 rank 	= comm.Get_rank()
 
 
+full_path = os.getcwd()
+path_to_vid = os.path.join(os.path.abspath(os.path.join(full_path, os.pardir)), "videos/")
+
 # extract the video names from the paths
 def path_to_name(v_path):
 	return v_path.split('/')[-1].split('.')[0]
@@ -34,16 +37,16 @@ def path_to_name(v_path):
 def load_filenames(n_clusters=970):
     if n_clusters == 970:
     	# find paths to all videos
-        return glob.glob('../videos/*.mp4')
+        return glob.glob(path_to_vid + '*.mp4')
     truth = get_truth()[0:n_clusters]
-    filenames = ['../videos/'+name +'.mp4'
+    filenames = [path_to_vid + name + '.mp4'
     			for set_of_names in truth 
     			for name in set_of_names]
     return filenames
 
 # the main function, which solves the challenge
 def main(n_clusters, do_weight, cluster):
-
+	
 	if rank == 0:
 		start_time = time.time()
 		video_files	= load_filenames(n_clusters = n_clusters)
@@ -64,11 +67,11 @@ def main(n_clusters, do_weight, cluster):
 	data = comm.gather(zip(videos,names), root = 0)
 	if rank == 0:
 		videos, video_names = zip(*[pair for paired_data in data for pair in paired_data ])
-		videos 		= np.asarray(videos)
+		videos 		= np.asarray(list(videos))
 		if cluster == 'kmeans':
 			clusters = cluster_videos_kmeans(videos, video_names, n_clusters)
 		elif cluster == 'gmm':
-			clusters = cluster_videos_gmm(videos, video_names, n_clusters)
+			clusters = cluster_videos_gmm(videos, video_names, n_clusters, cov_type = "spherical")
 		elif cluster == 'ac':
 			clusters = cluster_videos_ac(videos, video_names, n_clusters)
 		score 		= rand_index(clusters, n_clusters)
