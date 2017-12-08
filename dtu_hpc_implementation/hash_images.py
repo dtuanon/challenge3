@@ -177,9 +177,9 @@ def weight_features(do_weight, *args):
 		# calculated weights
 		importance		= map(lambda x: x/total_features, n_features)
 		norm 			= sum(map(lambda x: 1/x,importance))
-		return map(lambda x: 1/(x*norm), importance), args
+		return np.asarray(map(lambda x: 1/(x*norm), importance)), args
 	else:
-		return [1] * len(args), args
+		return np.asarray([1] * len(args)), args
 
 
 def frequency_bucket(hash_list):
@@ -205,6 +205,20 @@ def image_hash(frames):
     #dHash = np.asarray([int(char,16) for char in dHash])
     wHash = np.asarray([int(char,16) for char in wHash])
     return wHash
+
+
+def image_hash_edges(frames):
+	frames 	= np.mean(frames,axis=3)
+	edges 	= [feature.canny(i,sigma = 4) for i in frames]
+	edges 	= np.stack(edges)
+	Hash = ""
+	for image in edges:
+		image = Image.fromarray(image.astype('uint8')*255)
+		Hash += str(ih.phash(image))
+		#Hash += str(ih.whash(image))
+	Hash = np.asarray([int(char,16) for char in Hash])
+	return Hash
+
 
 """
 This function takes a single video and transforms it using LSH
@@ -237,9 +251,11 @@ def generate_video_representation(vid, do_weight, ):
 	aHash					= image_hash(frames)
 	
 	bucket					= frequency_bucket(aHash)
-
-	# find weights for each set of features
-	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features, square_color_feature)
-	total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
+	bucket_edges			= frequency_bucket(image_hash_edges(frames))
 	
-	return total_features.tolist()
+	
+	# find weights for each set of features
+	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features, square_color_feature, bucket_edges)
+	total_features			= np.concatenate(featurelist)
+	
+	return total_features.tolist(), weights

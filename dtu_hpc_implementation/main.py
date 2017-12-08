@@ -62,18 +62,18 @@ def main(n_clusters, do_weight, cluster):
 	# handle hashing in each process
 	video_files_and_names 	= comm.scatter(chunks, root = 0)	
 	video_files, names		= zip(*video_files_and_names)
-	videos					= map(lambda x: generate_video_representation(x,do_weight), video_files)
+	videos, weights			= zip(*map(lambda x: generate_video_representation(x,do_weight), video_files))
 	
-	data = comm.gather(zip(videos,names), root = 0)
+	data = comm.gather(zip(videos, weights, names), root = 0)
 	if rank == 0:
-		videos, video_names = zip(*[pair for paired_data in data for pair in paired_data ])
+		videos, weights, video_names = zip(*[pair for paired_data in data for pair in paired_data ])
 		videos 		= np.asarray(list(videos))
 		if cluster == 'kmeans':
-			clusters = cluster_videos_kmeans(videos, video_names, n_clusters)
+			clusters = cluster_videos_kmeans(videos, weights, video_names, n_clusters)
 		elif cluster == 'gmm':
-			clusters = cluster_videos_gmm(videos, video_names, n_clusters, cov_type = "spherical")
+			clusters = cluster_videos_gmm(videos, weights, video_names, n_clusters, cov_type = "spherical")
 		elif cluster == 'ac':
-			clusters = cluster_videos_ac(videos, video_names, n_clusters)
+			clusters = cluster_videos_ac(videos, weights, video_names, n_clusters)
 		score 		= rand_index(clusters, n_clusters)
 	
 		print "Scores: ", np.round(score,2), "\nExecution time: %s" % (time.time() - start_time)
