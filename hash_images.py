@@ -37,14 +37,14 @@ Function which averages a list of frames
 """
 def average_frames_grey_scale(frames):
 	frame 	= np.mean(frames, axis = 0)
-	
+
 	# make into an Image
 	i 		= Image.fromarray(frame.astype('uint8'))
-	
+
 	# convert image to grey scale
 	i		= i.convert(mode = "L")
-	
-	
+
+
 	return np.asarray(i)
 
 """
@@ -114,7 +114,7 @@ def rotation_invariant_feature(frame):
 
 	# calculate average
 	avg_pixel_cirles = avg_pixel_cirles.T / count_element_at_dist
-	
+
 	# return average of averages
 	return avg_pixel_cirles.reshape(1,-1)
 
@@ -203,6 +203,18 @@ def image_hash(frames):
     wHash = np.asarray([int(char,16) for char in wHash])
     return wHash
 
+def image_hash_edges(frames):
+	frames 	= np.mean(frames,axis=3)
+	edges 	= [feature.canny(i,sigma = 4) for i in frames]
+	edges 	= np.stack(edges)
+	Hash = ""
+	for image in edges:
+		image = Image.fromarray(image.astype('uint8')*255)
+		Hash += str(ih.phash(image))
+		#Hash += str(ih.whash(image))
+	Hash = np.asarray([int(char,16) for char in Hash])
+	return Hash
+
 """
 This function takes a single video and transforms it using LSH
 """
@@ -212,7 +224,7 @@ def generate_video_representation(vid, do_weight, ):
 
     # without pooling
 	pooled					= map(np.asarray, frames)
-	
+
 	# with pooling
 	#pooled					= map(to_numpy_pooling, frames)
 
