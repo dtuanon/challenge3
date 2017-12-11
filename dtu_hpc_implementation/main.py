@@ -47,6 +47,7 @@ def load_filenames(n_clusters=970):
 # the main function, which solves the challenge
 def main(n_clusters, do_weight, cluster):
 	
+	# devide video file paths into chunks to be sent to processes
 	if rank == 0:
 		start_time = time.time()
 		video_files	= load_filenames(n_clusters = n_clusters)
@@ -59,16 +60,20 @@ def main(n_clusters, do_weight, cluster):
 		chunks 					= None
 	comm.Barrier()
 	
-	# handle hashing in each process
+	# scatter data to each process handle hashing in each process
 	video_files_and_names 	= comm.scatter(chunks, root = 0)	
 	video_files, names		= zip(*video_files_and_names)
 	videos, weights			= zip(*map(lambda x: generate_video_representation(x,do_weight), video_files))
 	
+	# gather the result from each process
 	data = comm.gather(zip(videos, weights, names), root = 0)
+	
+	# only do clustering in process 0, which gathered all data
 	if rank == 0:
 		videos, weights, video_names = zip(*[pair for paired_data in data for pair in paired_data ])
 		videos 		= np.asarray(list(videos))
-
+		
+		# cluster the videos
 		if cluster == 'kmeans':
 			clusters = cluster_videos_kmeans(videos, weights, video_names, n_clusters)
 		elif cluster == 'gmm':
@@ -76,6 +81,8 @@ def main(n_clusters, do_weight, cluster):
 		elif cluster == 'ac':
 			clusters = cluster_videos_ac(videos, weights, video_names, n_clusters)
 		time_end	= time.time() - start_time
+		
+		# score the clustering method
 		score 		= rand_index(clusters, n_clusters)
 	
 		print "Scores: ", np.round(score,2), "\nExecution time: %s" % (time_end)
