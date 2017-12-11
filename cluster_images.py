@@ -1,8 +1,14 @@
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
 from sklearn.preprocessing import scale
-
 from sklearn.cluster import AgglomerativeClustering
+
+
+"""
+The Following 3 Functions perfrom clustering using K-Means, GMM and Agglomerative
+Clustering Methods. 
+"""
+
 def cluster_videos_kmeans(X, weights, names, n_clusters = 970):
 	X 				= scale(X)
 	X = X * weights
