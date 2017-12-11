@@ -68,15 +68,17 @@ def main(n_clusters, do_weight, cluster):
 	if rank == 0:
 		videos, weights, video_names = zip(*[pair for paired_data in data for pair in paired_data ])
 		videos 		= np.asarray(list(videos))
+
 		if cluster == 'kmeans':
 			clusters = cluster_videos_kmeans(videos, weights, video_names, n_clusters)
 		elif cluster == 'gmm':
-			clusters = cluster_videos_gmm(videos, weights, video_names, n_clusters, cov_type = "spherical")
+			clusters = cluster_videos_gmm(videos, weights, video_names, n_clusters, cov_type = "diag")
 		elif cluster == 'ac':
 			clusters = cluster_videos_ac(videos, weights, video_names, n_clusters)
+		time_end	= time.time() - start_time
 		score 		= rand_index(clusters, n_clusters)
 	
-		print "Scores: ", np.round(score,2), "\nExecution time: %s" % (time.time() - start_time)
+		print "Scores: ", np.round(score,2), "\nExecution time: %s" % (time_end)
 
 
 

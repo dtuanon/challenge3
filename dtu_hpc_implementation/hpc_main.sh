@@ -9,7 +9,7 @@
 #PBS -l walltime=01:00:00
 
 # -- number of processors/cores/nodes --
-#PBS -l nodes=4:ppn=10
+#PBS -l nodes=8:ppn=10
 
 # -- mail notification --
 #PBS -m abe

@@ -37,14 +37,14 @@ Function which averages a list of frames
 """
 def average_frames_grey_scale(frames):
 	frame 	= np.mean(frames, axis = 0)
-
+	
 	# make into an Image
 	i 		= Image.fromarray(frame.astype('uint8'))
-
+	
 	# convert image to grey scale
 	i		= i.convert(mode = "L")
-
-
+	
+	
 	return np.asarray(i)
 
 """
@@ -75,8 +75,11 @@ def get_frames(filename, n_frames = 10):
 	video 			= imageio.get_reader(filename)
 	length			= video.get_length()
 	frame_interval	= length / n_frames
-	trail_lead_idx	= int(round(length % float(n_frames) / 2))
-	idx_list		= range(trail_lead_idx, length - trail_lead_idx, frame_interval)
+	if frame_interval !=0:
+		trail_lead_idx	= int(round(length % float(n_frames) / 2))
+		idx_list	= range(trail_lead_idx, length - trail_lead_idx, frame_interval)
+	else:
+		idx_list = range(length)
 	return [crop_center(video.get_data(idx),0.92) for idx in idx_list]
 
 """
@@ -114,7 +117,7 @@ def rotation_invariant_feature(frame):
 
 	# calculate average
 	avg_pixel_cirles = avg_pixel_cirles.T / count_element_at_dist
-
+	
 	# return average of averages
 	return avg_pixel_cirles.reshape(1,-1)
 
@@ -167,22 +170,26 @@ def aspect_ratio(frame):
 Function whichw weights features
 """
 def weight_features(do_weight, *args):
+	# find number of features
+	n_features 		= map(len, args)
+	total_features	= float(sum(n_features))
 	if do_weight:
-		# find number of features
-		n_features 		= map(len, args)
-		total_features	= float(sum(n_features))
 		# calculated weights
 		importance		= map(lambda x: x/total_features, n_features)
 		norm 			= sum(map(lambda x: 1/x,importance))
-		return map(lambda x: 1/(x*norm), importance), args
+		hash_weight		= map(lambda x: 1/(x*norm), importance)
+		weights			= []
+		for nf, hash_w in zip(n_features, hash_weight):
+			weights += [hash_w]*int(nf)
+		return np.asarray(weights), args
 	else:
-		return [1] * len(args), args
+		return np.asarray([1] * int(total_features)), args
 
 
 def frequency_bucket(hash_list):
     fb = np.zeros(16)
     for ahash in hash_list:
-        fb[ahash] += 1
+        fb[ahash % 16] += 1
 
     return fb
 
@@ -203,6 +210,7 @@ def image_hash(frames):
     wHash = np.asarray([int(char,16) for char in wHash])
     return wHash
 
+
 def image_hash_edges(frames):
 	frames 	= np.mean(frames,axis=3)
 	edges 	= [feature.canny(i,sigma = 4) for i in frames]
@@ -210,21 +218,22 @@ def image_hash_edges(frames):
 	Hash = ""
 	for image in edges:
 		image = Image.fromarray(image.astype('uint8')*255)
-		Hash += str(ih.phash(image))
-		#Hash += str(ih.whash(image))
+		#Hash += str(ih.phash(image))
+		Hash += str(ih.whash(image))
 	Hash = np.asarray([int(char,16) for char in Hash])
 	return Hash
+
 
 """
 This function takes a single video and transforms it using LSH
 """
 def generate_video_representation(vid, do_weight, ):
     #frames					= get_frame_chunks(vid)
-	frames					= get_frames(vid)
+	frames					= get_frames(vid, n_frames = 30)
 
     # without pooling
 	pooled					= map(np.asarray, frames)
-
+	
 	# with pooling
 	#pooled					= map(to_numpy_pooling, frames)
 
@@ -244,9 +253,13 @@ def generate_video_representation(vid, do_weight, ):
 	asp						= aspect_ratio(frames[0])
 
 	aHash					= image_hash(frames)
-
+	
 	bucket					= frequency_bucket(aHash)
+	#bucket_edges			= frequency_bucket(image_hash_edges(frames))
+	
+	
 	# find weights for each set of features
-	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features) #, pHash, dHash, wHash) #rotation_features, square_color_feature, asp)
-	total_features			= np.concatenate(map(lambda x: x[1] / x[0], zip(weights, featurelist)))
-	return total_features.tolist()
+	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features, square_color_feature)
+	total_features			= np.concatenate(featurelist)
+	
+	return total_features.tolist(), weights

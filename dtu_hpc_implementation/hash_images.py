@@ -170,16 +170,20 @@ def aspect_ratio(frame):
 Function whichw weights features
 """
 def weight_features(do_weight, *args):
+	# find number of features
+	n_features 		= map(len, args)
+	total_features	= float(sum(n_features))
 	if do_weight:
-		# find number of features
-		n_features 		= map(len, args)
-		total_features	= float(sum(n_features))
 		# calculated weights
 		importance		= map(lambda x: x/total_features, n_features)
 		norm 			= sum(map(lambda x: 1/x,importance))
-		return np.asarray(map(lambda x: 1/(x*norm), importance)), args
+		hash_weight		= map(lambda x: 1/(x*norm), importance)
+		weights			= []
+		for nf, hash_w in zip(n_features, hash_weight):
+			weights += [hash_w]*int(nf)
+		return np.asarray(weights), args
 	else:
-		return np.asarray([1] * len(args)), args
+		return np.asarray([1] * int(total_features)), args
 
 
 def frequency_bucket(hash_list):
@@ -214,8 +218,8 @@ def image_hash_edges(frames):
 	Hash = ""
 	for image in edges:
 		image = Image.fromarray(image.astype('uint8')*255)
-		Hash += str(ih.phash(image))
-		#Hash += str(ih.whash(image))
+		#Hash += str(ih.phash(image))
+		Hash += str(ih.whash(image))
 	Hash = np.asarray([int(char,16) for char in Hash])
 	return Hash
 
@@ -251,11 +255,11 @@ def generate_video_representation(vid, do_weight, ):
 	aHash					= image_hash(frames)
 	
 	bucket					= frequency_bucket(aHash)
-	bucket_edges			= frequency_bucket(image_hash_edges(frames))
+	#bucket_edges			= frequency_bucket(image_hash_edges(frames))
 	
 	
 	# find weights for each set of features
-	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features, square_color_feature, bucket_edges)
+	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features, square_color_feature)
 	total_features			= np.concatenate(featurelist)
 	
 	return total_features.tolist(), weights
