@@ -195,7 +195,7 @@ def image_hash(frames):
 """
 This function takes a single video and transforms it using LSH
 """
-def generate_video_representation(vid, do_weight, ):
+def generate_video_representation(vid, do_weight):
     
     # Extract 30 frames from video
 	frames					= get_frames(vid, n_frames = 30)

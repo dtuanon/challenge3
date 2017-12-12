@@ -26,13 +26,17 @@ def main(n_clusters,  do_weight, cluster):
 	video_files	= load_filenames(n_clusters = n_clusters)
 	video_names = map(path_to_name, video_files)
 	#generate_video_representation(video_files[0])
-	videos		= np.asarray(map(lambda x: generate_video_representation(x,do_weight), video_files))
+	videos, weights		= zip(*map(lambda x: generate_video_representation(x,do_weight), video_files))
+	videos				= np.asarray(list(videos))
+
+	# cluster the images
 	if cluster == 'kmeans':
-		clusters = cluster_videos_kmeans(videos, video_names, n_clusters)
+		clusters = cluster_videos_kmeans(videos, weights, video_names, n_clusters)
 	elif cluster == 'gmm':
-		clusters = cluster_videos_gmm(videos, video_names, n_clusters)
+		clusters = cluster_videos_gmm(videos, weights, video_names, n_clusters)
 	elif cluster == 'ac':
-		clusters = cluster_videos_ac(videos, video_names, n_clusters)
+		clusters = cluster_videos_ac(videos, weights, video_names, n_clusters)
+	# score the clustering method
 	score 		= rand_index(clusters, n_clusters)
 
 	print score

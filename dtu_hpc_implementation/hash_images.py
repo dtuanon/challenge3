@@ -32,6 +32,7 @@ def to_numpy_pooling(meta_vid):
 	pooled	= pooling(np.asarray(meta_vid), block_size = (2,2), func = np.max)
 	return pooled.astype('uint8')
 
+
 """
 Function which averages a list of frames
 """
@@ -47,20 +48,10 @@ def average_frames_grey_scale(frames):
 	
 	return np.asarray(i)
 
+
 """
-Function which devides an image into 10 chunks of frames - each frame represented by a numpy array
+Function that crops frames in order to reduce effect of added margins
 """
-def get_frame_chunks(filename, n_chunks = 5):
-	video 			= imageio.get_reader(filename)
-	n_frames		= video.get_length()
-	frame_interval	= n_frames / n_chunks
-
-	intervals 		= [xrange(frame_interval*i, frame_interval*(i + 1)) for i in range(0, n_chunks - 1)]
-	last			= xrange(frame_interval*(n_chunks - 1 ), n_frames)
-	intervals.append(last)
-
-	return map(average_frames,[map(to_numpy_pooling, [video.get_data(idx) for idx in idx_list]) for idx_list in intervals])
-
 def crop_center(img,portion):
     x,y,c = img.shape
     cropx = int(floor(x*portion))
@@ -68,6 +59,7 @@ def crop_center(img,portion):
     startx = x//2 - cropx//2
     starty = y//2 - cropy//2
     return img[startx:startx+cropx,starty:starty+cropy, :]
+
 """
 Function which provides a fixed number of frames, evenly spaced
 """
@@ -134,16 +126,6 @@ def square_color_bucket(frames):
 	return	x.ravel()
 
 
-#def get_edge_features(frames,frame_div=3):
-#	frames 	= np.mean(frames,axis=3)
-#	edges 	= [feature.canny(i,sigma = 4) for i in frames]
-#	edges 	= np.stack(edges)
-#	s 		= [int(ceil(i/frame_div)) for i in frames.shape]
-#	x	 	= pooling(edges,block_size=(2,s[1], s[2]), func=np.mean)
-#	x 		= x.flatten()
-#	x 		= x/np.linalg.norm(x)
-#	return x
-
 """
 Function used to visualize images from numpy array (used for debugging and testing)
 """
@@ -167,7 +149,7 @@ def aspect_ratio(frame):
 	return np.asarray([w/float(h)])
 
 """
-Function whichw weights features
+Function which weights features
 """
 def weight_features(do_weight, *args):
 	# find number of features
@@ -185,7 +167,9 @@ def weight_features(do_weight, *args):
 	else:
 		return np.asarray([1] * int(total_features)), args
 
-
+"""
+Function which fills up bins from a list of hashes
+"""
 def frequency_bucket(hash_list):
     fb = np.zeros(16)
     for ahash in hash_list:
@@ -193,72 +177,58 @@ def frequency_bucket(hash_list):
 
     return fb
 
+
+"""
+Function that hashes frames using LSH wHash function
+"""
 def image_hash(frames):
-    aHash = ""
-    pHash = ""
-    dHash = ""
     wHash = ""
     for image in frames:
         image = Image.fromarray(image)
-        #aHash += str(ih.average_hash(image))
-        #pHash += str(ih.phash(image))
-        #dHash += str(ih.dhash(image))
         wHash += str(ih.whash(image))
-    #aHash = [int(char,16) for char in aHash]
-    #pHash = np.asarray([int(char,16) for char in pHash])
-    #dHash = np.asarray([int(char,16) for char in dHash])
+    
+    #Converting hexadecimal hash into hash with elements from 0-15
     wHash = np.asarray([int(char,16) for char in wHash])
     return wHash
-
-
-def image_hash_edges(frames):
-	frames 	= np.mean(frames,axis=3)
-	edges 	= [feature.canny(i,sigma = 4) for i in frames]
-	edges 	= np.stack(edges)
-	Hash = ""
-	for image in edges:
-		image = Image.fromarray(image.astype('uint8')*255)
-		#Hash += str(ih.phash(image))
-		Hash += str(ih.whash(image))
-	Hash = np.asarray([int(char,16) for char in Hash])
-	return Hash
 
 
 """
 This function takes a single video and transforms it using LSH
 """
-def generate_video_representation(vid, do_weight, ):
-    #frames					= get_frame_chunks(vid)
+def generate_video_representation(vid, do_weight):
+    
+    # Extract 30 frames from video
 	frames					= get_frames(vid, n_frames = 30)
 
-    # without pooling
+    # Store as numpy array 
 	pooled					= map(np.asarray, frames)
-	
-	# with pooling
-	#pooled					= map(to_numpy_pooling, frames)
 
+    # Resize frames to be 20x20 and stack them
 	pooled_resized			= np.stack(map(resize, pooled))
-	# calculate total average
+    
+	# Average 30 frames element/pixel-wise and convert to gray-scale
 	tot_avg_grey			= average_frames_grey_scale(pooled_resized)
-	# get rotation invariant features averaged across all frames
+    
+	#  Get rotation invariant features averaged across all frames
 	rotation_features		= normalize(rotation_invariant_feature(tot_avg_grey)).ravel()
-	# stacking
-	pooled = np.stack(pooled)
-	#edge_features			= get_edge_features(pooled)
+    
+	#  Stacking the original 30 frames
+	pooled                  = np.stack(pooled)
 
-	#square colors
+	# square colors
 	square_color_feature	= square_color_bucket(pooled)
 
-	# get aspect ratio
+	# Get aspect ratio
 	asp						= aspect_ratio(frames[0])
-
-	aHash					= image_hash(frames)
+    
+    # Hash frames using Discrete Wavelet Transformation (DWT: wHash)
+	wHash					= image_hash(frames)
 	
-	bucket					= frequency_bucket(aHash)
-	#bucket_edges			= frequency_bucket(image_hash_edges(frames))
+    # Create a frequency bucket (16 bins) from the 30 hashes
+	bucket					= frequency_bucket(wHash)
 	
 	
-	# find weights for each set of features
+	# Find weights for each set of features
 	weights, featurelist	= weight_features(do_weight, bucket, asp, rotation_features, square_color_feature)
 	total_features			= np.concatenate(featurelist)
 	
