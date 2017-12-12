@@ -6,7 +6,7 @@ from sklearn.cluster import AgglomerativeClustering
 
 """
 The Following 3 Functions perfrom clustering using K-Means, GMM and Agglomerative
-Clustering Methods. 
+Clustering Methods.
 """
 
 def cluster_videos_kmeans(X, weights, names, n_clusters = 970):
@@ -38,7 +38,6 @@ def cluster_videos_ac(X, weights, names, n_clusters = 970):
     X = X * weights
     model = AgglomerativeClustering(n_clusters=n_clusters, affinity='hamming',linkage = 'average')
     belonging_index = model.fit_predict(X)
-    print belonging_index
     clusters		= [set() for _ in range(n_clusters)]
     for cluster_idx, name in zip(belonging_index, names):
         clusters[cluster_idx].add(name)
